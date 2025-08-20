@@ -1,150 +1,1703 @@
-
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>SQL Editor — Standalone</title>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finance Portal – Reports (Scheduler Prototype v35r1)</title>
+<style>
     :root{
-      --bg:#0b1220; --bg-2:#0f172a; --line:#e5e7eb; --ink:#111827;
-      --muted:#6b7280; --hint:#94a3b8; --focus:rgba(59,130,246,.25);
-      --btn:#111827; --btn-ink:#fff; --btn-2:#f3f4f6; --btn-2-ink:#111827;
-      --radius:12px; --input-h:36px;
+      --brand:#2563eb; --brand2:#22d3ee;
+      --accent1:#4b6ea9; --accent2:#78c4e0;
+      --bg:#f6f7fb; --ink:#0f172a; --muted:#6b7280; --line:#dbeafe; --card:#ffffff;
+      --input-h:32px; --radius:10px;
     }
-    html, body { height:100%; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
     body{
-      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background:#ffffff; color:var(--ink);
-      display:grid; place-items:center; padding:16px;
-    }
-    .shell{
-      width: min(1200px, 100%);
-      border:1px solid var(--line); border-radius:16px; overflow:hidden;
-      box-shadow: 0 10px 30px rgba(2,6,23,.08);
-    }
-    .header{
-      padding:12px 12px; background:#f8fafc; border-bottom:1px solid var(--line);
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    }
-    .title{ font-weight:600; }
-    .toolbar{
-      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-      margin-left:auto;
-    }
-    .toolbar .group{
-      display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-    }
-    .toolbar select, .toolbar button{
-      height:32px; border:1px solid var(--line); border-radius:10px;
-      background:#fff; color:#111827; padding:0 10px; font-size:13px; cursor:pointer;
-    }
-    .toolbar button.primary{ background:#111827; color:#fff; }
-    .toolbar select{ max-width:180px; }
-    @media (max-width:520px){
-      .toolbar select{ flex:1 1 100%; max-width:100%; }
+      margin:0;background:var(--bg);color:var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
     }
 
-    .editor-wrap{
-      border-top:1px solid var(--line); background:var(--bg-2);
-      display:grid; grid-template-rows:auto minmax(280px, 60vh); 
-    }
-    .editor-toolbar{
-      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-      padding:8px; border-bottom:1px solid rgba(148,163,184,.25); color:#e5e7eb;
-      background:var(--bg-2);
-    }
-    .editor-toolbar .row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    .editor-toolbar .spacer{ flex:1 }
-    .editor-toolbar button, .editor-toolbar select{
-      height:32px; border:1px solid rgba(148,163,184,.35); border-radius:10px;
-      background:#0b1220; color:#e5e7eb; padding:0 10px; font-size:13px; cursor:pointer;
-      white-space:nowrap;
-    }
-    .editor-toolbar button:hover{ outline:1px solid rgba(59,130,246,.35); }
-    .editor-pad{ resize:vertical; overflow:auto; }
+    /* Topbar */
+    .topbar{position:fixed;inset:0 0 auto 0;height:52px;z-index:20;
+      color:#fff;display:flex;align-items:center;gap:10px;padding:0 14px;
+      background:linear-gradient(90deg,var(--accent1),var(--accent2));}
+    .topbar .badge{background:rgba(255,255,255,.25);padding:5px 8px;border-radius:7px;font-weight:700}
+    .toggle{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px}
+    .switch{position:relative;width:44px;height:24px;display:inline-block}
+    .switch input{opacity:0;width:0;height:0}
+    .slider{position:absolute;cursor:pointer;inset:0;background:#c7d2fe;border-radius:999px;transition:.2s}
+    .slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}
+    .switch input:checked + .slider{background:#22c55e}
+    .switch input:checked + .slider:before{transform:translateX(20px)}
 
-    /* CodeMirror theming */
-    .CodeMirror { height: 100% !important; font-size: 14px; line-height: 1.6; }
-    .cm-s-material-darker.CodeMirror{ background:#0b1220; color:#e5e7eb; }
-    .cm-s-material-darker .CodeMirror-gutters{ background:#0f172a; border-right:1px solid rgba(148,163,184,.25); color:#94a3b8; }
-    .cm-s-material-darker .CodeMirror-linenumber{ color:#94a3b8; }
-    .cm-s-material-darker .CodeMirror-cursor{ border-left:1px solid #fff; }
-    .cm-s-material-darker .cm-string{ color:#34d399; }
-    .cm-s-material-darker .cm-number{ color:#60a5fa; }
-    .cm-s-material-darker .cm-keyword{ color:#facc15; font-weight:600; }
-    .cm-s-material-darker .cm-comment{ color:#9ca3af; font-style:italic; }
-    .cm-s-material-darker .cm-atom{ color:#a78bfa; }
-    .cm-s-material-darker .cm-def{ color:#22d3ee; }
-    .cm-s-material-darker .CodeMirror-activeline-background { background: rgba(59,130,246,.08); }
-    .cm-s-material-darker .CodeMirror-selected { background: rgba(34,197,94,.25); }
+    /* Sidebar */
+    .sidebar{
+      position:fixed; left:0; top:52px; bottom:0; width:88px; z-index:10;
+      background:#fff; border-right:1px solid var(--line);
+      padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:14px;
+    }
+    .side-btn{
+      position:relative;
+      width:100%; display:flex; align-items:center; justify-content:center;
+      border:1px solid var(--line); border-radius:14px; padding:16px; cursor:pointer; background:#f8fafc;
+      transition: transform .08s ease, box-shadow .08s ease, border-color .08s ease, background .08s ease;
+      outline:none;
+    }
+    /* Accent bar */
+    .side-btn::after{
+      content:""; position:absolute; left:-1px; top:6px; bottom:6px; width:4px;
+      border-radius:3px; background:transparent; transition: background .08s ease;
+    }
+    /* Nicer, faster tooltip (pill + arrow) */
+    .side-btn[data-tip]::before{
+      content: attr(data-tip);
+      position:absolute; left:100%; top:50%; transform: translate(8px,-50%);
+      background:rgba(13,18,33,.98); color:#fff; padding:6px 10px; border-radius:10px;
+      font-size:12px; letter-spacing:.01em; font-weight:500; white-space:nowrap;
+      opacity:0; pointer-events:none; z-index:100;
+      box-shadow:0 8px 24px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.08);
+      transition: opacity .06s linear, transform .06s ease;
+    }
+    .side-btn[data-tip]::after{
+      content:""; position:absolute; left:100%; top:50%; transform: translate(2px,-50%) rotate(45deg);
+      width:8px; height:8px; background:rgba(13,18,33,.98); opacity:0; pointer-events:none; z-index:99;
+      transition: opacity .06s linear, transform .06s ease;
+      box-shadow:0 0 0 1px rgba(255,255,255,.08);
+    }
+    .side-btn:hover::before, .side-btn:focus-visible::before{ opacity:1; transform: translate(6px,-50%); }
+    .side-btn:hover::after, .side-btn:focus-visible::after{ opacity:1; transform: translate(0px,-50%) rotate(45deg); }
 
-    /* Helper ribbon */
-    .ribbon{ padding:8px 12px; background:#fef3c7; border-top:1px solid #fde68a; color:#78350f; font-size:13px; }
-  </style>
+    .side-btn svg{width:32px;height:32px;display:block;transition: transform .08s ease}
+    .side-btn:hover, .side-btn:focus-visible{
+      background:#dbeafe;border-color:#3b82f6;
+      box-shadow:0 10px 26px rgba(37,99,235,.28); transform:translateY(-2px) scale(1.02);
+    }
+    .side-btn:hover::after, .side-btn:focus-visible::after{ background:#2563eb; }
+    .side-btn:hover svg, .side-btn:focus-visible svg{ transform:translateY(-1px) }
 
-  <!-- CodeMirror CSS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
-</head>
+    /* Main */
+    .main{margin-left:88px; padding-top:52px;}
+    .page{max-width:1200px;margin:18px auto;padding:0 12px}
+    .title{font-size:20px;font-weight:700;margin:0 0 6px 0}
+    .toolbar{display:flex;gap:10px;align-items:flex-end;margin:10px 0 12px 0;flex-wrap:wrap}
+    input[type="search"]{
+      height:var(--input-h);padding:0 12px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;font-size:14px;width:100%;
+    }
+    button{border:1px solid var(--line);background:#fff;height:32px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:14px}
+    button.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+    button.secondary{background:#ffffff;border-color:#cbd5e1;color:#0f172a}
+
+    /* Groups */
+    .group{border:1px solid var(--line);border-radius:10px;background:#fff;margin:12px 0;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .group-h{padding:6px 10px;background:linear-gradient(90deg,rgba(59,130,246,.12),rgba(34,211,238,.12));display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+    .group-title{font-weight:600}
+    .group-c{display:none}
+    .group.open .group-c{display:block}
+    .report-list{display:flex;flex-direction:column;row-gap:4px}
+    .report-row{display:grid;grid-template-columns:minmax(220px, 1.2fr) minmax(260px, 2fr) auto auto;gap:12px;align-items:center;
+      padding:12px 12px;border-top:1px solid var(--line)}
+    .report-row:hover{background:#f0f9ff}
+    .report-row h4{margin:0;font-size:14px}
+    .report-row .small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* Modal shared */
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.38);display:none;align-items:center;justify-content:center;padding:12px;z-index:50}
+    .modal.open{display:flex}
+    .dialog{max-width: 1280px;width:98vw;background:#fff;border-radius:12px;border:1px solid var(--line);box-shadow:0 18px 36px rgba(0,0,0,.16);overflow:hidden;display:grid;grid-template-columns:320px 1fr}
+    .dialog-h{grid-column:1 / -1;padding:8px 10px;border-bottom:1px solid var(--line)}
+    .nav{border-right:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:8px;max-height:86vh;overflow:auto}
+    .nav-header{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+    .nav-item{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff;cursor:pointer}
+    .nav-item.active{border-color:var(--brand);box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+    .nav-item .label{display:flex;flex-direction:column}
+    .nav-item .small{font-size:11px;color:var(--muted)}
+    .nav-footer{margin-top:auto;display:flex;justify-content:flex-start}
+    .dialog-body{padding:8px;overflow:auto;max-height:86vh}
+    .section{border:1px dashed var(--line);border-radius:10px;padding:8px;margin-bottom:8px;background:#fff}
+    .section h3{margin:0 0 6px 0;font-size:14px}
+    .weekday{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .weekday button{height:28px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:13px}
+    .weekday button.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .rowish{display:grid;grid-template-columns:1fr 1fr;gap: 24px}
+    .dialog-f{grid-column:1 / -1;padding:8px 10px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;background:#fff}
+
+    /* Schedule modal only: add a tiny bit more vertical padding & spacing */
+    #dialogBodySchedule .section{ padding:12px 10px; margin-bottom:10px; }
+    #dialogBodySchedule .rowish{ gap:10px; }
+    #dialogBodySchedule label{ margin-bottom:4px; }
+
+    /* Cadence/Timing */
+    .cadence-grid{display:grid;grid-template-columns:1fr 1fr;gap: 24px;align-items:start}
+    .radio-inline-skinny{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .radio-inline-skinny label{display:inline-flex;align-items:center;gap:6px;font-size:14px;padding:2px 0}
+
+    /* Inputs */
+    select, input[type="text"], input[type="time"], input[type="number"], input[type="date"]{
+      height:var(--input-h); padding:0 10px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; width:100%;
+    }
+    input[type="time"]{font-family:ui-monospace,Menlo,Consolas,monospace}
+
+    /* Chips (compact) */
+    .chips-input{display:flex;align-items:center;flex-wrap:wrap;gap:6px;border:1px solid var(--line);border-radius:10px;padding:1px 6px;background:#fff}
+    .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#f8fafc;border-radius:999px;padding:2px 8px;font-size:12px;line-height:1.15}
+    .chip button{border:0;background:transparent;cursor:pointer;font-size:14px;line-height:1}
+    .chips-input input{border:0;outline:none;min-width:120px;font-size:14px;padding:2px 0;line-height:1.15}
+    .chips-input:focus-within{box-shadow:0 0 0 2px rgba(37,99,235,.18)}
+
+    @media (max-width: 1024px){
+      .dialog{max-width:none;width:100%;height:100%;border-radius:0;grid-template-columns:1fr}
+      .nav{display:none}
+      .dialog-body{max-height:calc(100vh - 52px - 90px)}
+    }
+  
+/* --- v35r5: spacing + compact email (Schedule modal only) --- */
+#dialogBodySchedule .cadence-grid .stack label { display:block; margin-bottom: 14px; }
+#dialogBodySchedule input#time { margin-top: 4px; }
+#dialogBodySchedule select#tz { margin-top: 4px; }
+#dialogBodySchedule input#endDate { margin-top: 4px; }
+#dialogBodySchedule .chips-input { padding: 0 6px; }
+#dialogBodySchedule .chips-input input { padding: 2px 0; font-size: 13px; line-height: 1.2; min-height: 0; }
+
+
+/* removed old v35r6 styles */ */
+#dialogBodySchedule .chips-input{
+  padding: 4px 6px !important;
+  gap: 6px !important;
+  min-height: 34px !important;
+  border-color: #c7d2fe !important;
+  background: #ffffff !important;
+  align-items: center !important;
+}
+#dialogBodySchedule .chips-input:focus-within{
+  border-color:#60a5fa !important;
+  box-shadow: 0 0 0 2px rgba(37,99,235,.18) !important;
+}
+#dialogBodySchedule .chips-input input{
+  height: 24px !important;
+  padding: 2px 6px !important;
+  font-size: 13px !important;
+  line-height: 20px !important;
+  min-width: 140px !important;
+  vertical-align: middle !important;
+}
+#dialogBodySchedule .chip{
+  border-color:#c7d2fe !important;
+  background:#eef2ff !important;
+  color:#0f172a !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  line-height: 1.2 !important;
+}
+#dialogBodySchedule .chip button{
+  margin-left: 4px !important;
+  opacity: .75 !important;
+}
+#dialogBodySchedule .chip button:hover{
+  opacity: 1 !important;
+}
+
+
+/* --- v35r7: Refined Delivery chips (less padding) applied to Schedule + Run --- */
+#dialogBodySchedule .chips-input,
+#dialogBodyRun .chips-input{
+  padding: 3px 5px !important;
+  gap: 6px !important;
+  min-height: 32px !important;
+  border-color: #c7d2fe !important;
+  background: #ffffff !important;
+  align-items: center !important;
+}
+#dialogBodySchedule .chips-input:focus-within,
+#dialogBodyRun .chips-input:focus-within{
+  border-color:#60a5fa !important;
+  box-shadow: 0 0 0 2px rgba(37,99,235,.18) !important;
+}
+#dialogBodySchedule .chips-input input,
+#dialogBodyRun .chips-input input{
+  height: 22px !important;
+  padding: 1px 5px !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  min-width: 140px !important;
+  vertical-align: middle !important;
+}
+#dialogBodySchedule .chip,
+#dialogBodyRun .chip{
+  border-color:#c7d2fe !important;
+  background:#eef2ff !important;
+  color:#0f172a !important;
+  padding: 2px 7px !important; /* reduced padding */
+  border-radius: 999px !important;
+  line-height: 1.2 !important;
+}
+#dialogBodySchedule .chip button,
+#dialogBodyRun .chip button{
+  margin-left: 4px !important;
+  opacity: .75 !important;
+}
+#dialogBodySchedule .chip button:hover,
+#dialogBodyRun .chip button:hover{
+  opacity: 1 !important;
+}
+
+
+/* --- v35r8: Improved Delivery chips (alignment + button fix) --- */
+#dialogBodySchedule .chips-input,
+#dialogBodyRun .chips-input{
+  padding: 3px 5px !important;
+  gap: 6px !important;
+  min-height: 32px !important;
+  border: 1px solid #c7d2fe !important;
+  background: #fff !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+}
+#dialogBodySchedule .chips-input input,
+#dialogBodyRun .chips-input input{
+  height: 22px !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  padding: 2px 4px !important;
+  margin: 2px 0 !important;
+  vertical-align: middle !important;
+}
+#dialogBodySchedule .chip,
+#dialogBodyRun .chip{
+  display: inline-flex !important;
+  align-items: center !important;
+  border: 1px solid #c7d2fe !important;
+  background:#eef2ff !important;
+  color:#0f172a !important;
+  padding: 2px 6px !important;
+  margin: 2px 3px !important;
+  border-radius: 999px !important;
+  font-size: 13px !important;
+  line-height: 1.1 !important;
+}
+#dialogBodySchedule .chip button,
+#dialogBodyRun .chip button{
+  width: 16px !important;
+  height: 16px !important;
+  margin-left: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  opacity: 0.7 !important;
+}
+#dialogBodySchedule .chip button:hover,
+#dialogBodyRun .chip button:hover{
+  background: rgba(99,102,241,.15) !important;
+  opacity: 1 !important;
+}
+
+
+/* title row */
+.title-row{display:flex;align-items:center;gap:10px;margin:0 0 6px 0}
+.title-row .title{margin:0}
+.build-btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-weight:600;cursor:pointer;font-size:13px;text-decoration:none;color:#0f172a}
+.build-btn:hover{background:#f1f5f9;box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-1px)}
+.build-btn:active{transform:translateY(0)}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.38);display:none;align-items:center;justify-content:center;padding:12px;z-index:9999}
+.modal.open{display:flex}
+.dialog{max-width: 1280px;width:98vw;background:#fff;border-radius:12px;border:1px solid #dbeafe;box-shadow:0 18px 36px rgba(0,0,0,.16);overflow:hidden}
+.dialog-h{padding:8px 10px;border-bottom:1px solid #dbeafe}
+.dialog-body{padding:8px;max-height:80vh;overflow:auto}
+.dialog-f{padding:8px 10px;border-top:1px solid #dbeafe;display:flex;justify-content:flex-end;gap:8px;background:#fff}
+/* cards one-per-line */
+.cards{display:grid;grid-template-columns:1fr;gap:10px;padding:10px}
+.card{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.card h4{margin:0;font-size:14px}
+.card .desc{grid-column:1 / -1;font-size:12px;color:#6b7280}
+.card .actions{display:flex;gap:8px}
+
+
+#btnBuildReport:hover { background-color:#1d4ed8; cursor:pointer; }
+
+
+#btnBuildReport { background-color:#2563eb !important; color:#fff !important; }
+#btnBuildReport:hover { background-color:#1e40af !important; cursor:pointer; }
+
+/* SQL syntax highlighting (simple regex-based) */
+.sql-keyword { color:#facc15; font-weight:bold; }
+.sql-string { color:#34d399; }
+.sql-number { color:#60a5fa; }
+
+
+/* RICH8 editor layout */
+.editor-shell{display:grid;grid-template-columns:52px 1fr;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0b1220}
+.editor-gutter{background:#0f172a;color:#94a3b8;border-right:1px solid rgba(148,163,184,.25);padding:10px 8px 10px 6px;text-align:right;white-space:pre;user-select:none;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;overflow:hidden}
+.editor-code{position:relative}
+#sqlHighlight{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.6;color:#f8fafc;padding:10px 12px}
+#brSQL{position:relative;width:100%;height:720px;resize:vertical;background:transparent;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.6;tab-size:2;outline:none;overflow:auto}
+
+
+.sql-editor {
+  font-family: monospace;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  white-space: pre;
+  overflow: auto;
+}
+.CodeMirror {
+  height: auto !important;
+  min-height: 500px;
+  font-size: 14px;
+}
+.CodeMirror-linenumbers {
+  color: #888;
+}
+
+.sidebar a .tooltiptext {
+  background-color: #007BFF;
+  color: white;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+
+/* AUTO SQL editor (single-layer, no overlay) */
+#modalBuild .dialog{ max-width: 1600px; width: 95vw; }
+.editor-shell.auto{ display:grid; grid-template-columns:52px 1fr; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#0b1220; min-height: 70vh; }
+.editor-gutter{ background:#0f172a; color:#94a3b8; border-right:1px solid rgba(148,163,184,.25); padding:12px 8px 12px 6px; text-align:right; white-space:pre; user-select:none; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; line-height:1.6; overflow:hidden }
+.editor-textarea{ border:0; outline:none; background:#0b1220; color:#e5e7eb; padding:12px 14px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:15px; line-height:1.7; resize:none; width:100%; height:70vh; overflow:auto }
+.editor-textarea::selection{ background:rgba(59,130,246,.35) }
+.lint-panel{ margin-top:10px; border:1px solid #fde68a; background:#fffbeb; color:#92400e; padding:10px; border-radius:10px }
+.details-stack{ display:grid; gap:10px }
+.details-stack label{ display:grid; gap:6px }
+/* Nicer blue hover text for left icons */
+.side-btn[data-tip]{ position:relative }
+.side-btn[data-tip]::before{
+  content: attr(data-tip);
+  position:absolute; left:100%; top:50%; transform: translate(8px,-50%);
+  background: linear-gradient(180deg, rgba(59,130,246,.96), rgba(37,99,235,.96));
+  color:#fff; padding:8px 12px; border-radius:12px;
+  font-size:12px; font-weight:700; white-space:nowrap; letter-spacing:.01em;
+  opacity:0; pointer-events:none; z-index:100;
+  box-shadow:0 10px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.08);
+  transition: opacity .08s linear, transform .08s ease;
+}
+.side-btn[data-tip]:hover::before,.side-btn[data-tip]:focus-visible::before{ opacity:1; transform: translate(4px,-50%) }
+.side-btn[data-tip]::after{
+  content:""; position:absolute; left:100%; top:50%; transform: translate(2px,-50%) rotate(45deg);
+  width:10px; height:10px; background:rgba(37,99,235,.96); opacity:0; transition: opacity .08s linear, transform .08s ease;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08)
+}
+.side-btn[data-tip]:hover::after,.side-btn[data-tip]:focus-visible::after{ opacity:1; transform: translate(0,-50%) rotate(45deg) }
+
+</style>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet"/><link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css" rel="stylesheet"/><link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css" rel="stylesheet"/><script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/sql-hint.min.js"></script><script src="https://cdn.jsdelivr.net/npm/sql-formatter@15.3.2/dist/sql-formatter.min.js"></script><style>
+/* Editor area styles (dark) */
+.editor-area{border:1px solid var(--line); border-radius:12px; background:#0b1220; padding:0; overflow:hidden}
+.editor-toolbar{display:flex; gap:8px; align-items:center; padding:8px 8px; background:#0f172a; border-bottom:1px solid rgba(148,163,184,.25); color:#e5e7eb}
+.editor-toolbar .spacer{flex:1}
+.editor-resize{ resize:vertical; overflow:auto; min-height:380px; height:64vh; max-height:86vh; }
+.CodeMirror { height: 100% !important; min-height: 320px; font-size: 14px; line-height: 1.6; }
+.cm-s-material-darker.CodeMirror{ background:#0b1220; color:#e5e7eb; }
+.cm-s-material-darker .CodeMirror-gutters{ background:#0f172a; border-right:1px solid rgba(148,163,184,.25); color:#94a3b8; }
+.cm-s-material-darker .CodeMirror-linenumber{ color:#94a3b8; }
+.cm-s-material-darker .CodeMirror-cursor{ border-left:1px solid #fff; }
+.cm-s-material-darker .cm-string{ color:#34d399; }
+.cm-s-material-darker .cm-number{ color:#60a5fa; }
+.cm-s-material-darker .cm-keyword{ color:#facc15; font-weight:600; }
+.cm-s-material-darker .cm-comment{ color:#9ca3af; font-style:italic; }
+.cm-s-material-darker .cm-atom{ color:#a78bfa; }
+.cm-s-material-darker .cm-def{ color:#22d3ee; }
+.cm-s-material-darker .CodeMirror-activeline-background { background: rgba(59,130,246,.08); }
+.cm-s-material-darker .CodeMirror-selected { background: rgba(34,197,94,.25); }
+</style><style>
+/* Full-page Build Report view */
+#buildView{ display:none; padding:16px; }
+#buildView.open{ display:block; }
+.build-topbar{
+  display:flex; align-items:center; gap:10px; margin:0 auto 12px auto;
+  width:min(1200px, 100%);
+}
+.build-topbar #btnBuildBack{
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:6px 10px; cursor:pointer;
+}
+.build-topbar .build-title{ font-size:18px; font-weight:600; }
+
+/* Lint panel styling */
+.sql-lint-panel {
+  border-top: 1px dashed #e5e7eb;
+  background: #fffbeb;
+  color: #7c2d12;
+  padding: 8px 10px;
+  font-size: 13px;
+  width:min(1200px, 100%);
+  margin: 0 auto;
+}
+.sql-lint-panel .ok { color: #065f46; background: #ecfdf5; padding: 2px 6px; border-radius: 8px; }
+.sql-lint-panel .warn { color: #92400e; background: #fef3c7; padding: 2px 6px; border-radius: 8px; }
+.sql-lint-panel .err { color: #991b1b; background: #fee2e2; padding: 2px 6px; border-radius: 8px; }
+
+/* Build Report trigger button color */
+#btnBuildReport, a#btnBuildReport, button#btnBuildReport{
+  background: var(--brand, #2563eb) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+#btnBuildReport:hover{ filter: brightness(1.05); }
+</style><style>
+/* Polished Build Report full view */
+#buildView{ display:none; padding:16px; background:#f8fafc; min-height:100vh; }
+#buildView.open{ display:block; }
+.build-topbar{
+  display:flex; align-items:center; gap:10px; margin:0 auto 12px auto;
+  width:min(1200px, 100%);
+}
+#btnBuildBack{
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:6px 10px; cursor:pointer;
+}
+.build-title{ font-size:18px; font-weight:600; }
+.build-actions{ margin-left:auto; display:flex; gap:8px; }
+.build-actions .primary{ background: var(--brand, #2563eb); color:#fff; border:0; border-radius:10px; padding:6px 12px; }
+.build-actions .secondary{ background:#fff; color:#111827; border:1px solid #e5e7eb; border-radius:10px; padding:6px 12px; }
+.build-actions .primary:hover{ filter:brightness(1.05); }
+.build-actions .secondary:hover{ background:#f3f4f6; }
+
+/* Shell matching */
+.shell{ border-color:#e5e7eb; }
+.header{ background:#f8fafc; border-bottom:1px solid #e5e7eb; }
+.editor-toolbar{ background:#0f172a; border-bottom:1px solid rgba(148,163,184,.25); color:#e5e7eb; }
+.editor-toolbar button, .editor-toolbar select{ border-color: rgba(148,163,184,.35); }
+
+/* Lint panel under builder */
+#lintPanel{ width:min(1200px, 100%); margin:10px auto 0 auto; }
+
+/* Sidebar icon tooltip uses title attr; ensure cursor and spacing */
+#navBuildReport{ display:inline-flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; }
+#navBuildReport:hover{ color: var(--brand, #2563eb); }
+</style><style>
+/* Scoped: only inside the Schedule modal */
+#modalSchedule .dialog-f:not(.schedule-footer){ display:none !important; }
+
+/* Our Schedule footer buttons */
+#modalSchedule .schedule-footer{ display:flex; gap:8px; justify-content:flex-end; padding:10px 16px; border-top:1px solid #e5e7eb; background:#fff; }
+#scheduleCancel{ background:#fff; color:#0f172a; border:1px solid #e5e7eb; border-radius:10px; padding:6px 12px; }
+#scheduleSaveExit{ background: var(--brand, #2563eb); color:#fff; border:0; border-radius:10px; padding:6px 12px; }
+#scheduleCancel:hover{ background:#f3f4f6; }
+#scheduleSaveExit:hover{ filter: brightness(1.05); }
+</style></head>
 <body>
-  <div class="shell" role="region" aria-label="SQL Editor">
-    <div class="header">
-      <div class="title">SQL Editor</div>
-      <div class="toolbar" role="toolbar" aria-label="Top toolbar">
-        <div class="group">
-          <label for="dialect" class="sr-only">Dialect</label>
-          <select id="dialect" aria-label="SQL dialect">
-            <option value="sql">ANSI SQL</option>
-            <option value="postgresql">PostgreSQL</option>
-            <option value="mysql">MySQL</option>
-            <option value="tsql">T‑SQL</option>
-          </select>
-        </div>
-        <div class="group">
-          <button id="btnFormat" type="button" aria-label="Format SQL">Format</button>
-          <button id="btnWrap" type="button" aria-label="Toggle wrap">Wrap</button>
-          <button id="btnBigger" type="button" aria-label="Increase font size">A+</button>
-          <button id="btnSmaller" type="button" aria-label="Decrease font size">A−</button>
-          <button id="btnCopy" type="button" aria-label="Copy SQL">Copy</button>
-        </div>
-      </div>
-    </div>
+<!-- Top bar -->
+<!-- Sidebar with stronger hover & nicer tooltips -->
+<!-- Schedule Modal -->
+<!-- Run Modal -->
+<!-- Build Report Modal -->
+<div id="mainApp"><div class="topbar">
+<span class="badge">FP</span><div>Finance Portal</div>
+<div class="toggle" title="Toggle demo data">
+<span>Demo data</span>
+<label class="switch">
+<input id="demoToggle" type="checkbox"/>
+<span class="slider"></span>
+</label>
+</div>
+</div><nav aria-label="Primary" class="sidebar">
+<!-- Bank -->
+<button class="side-btn" data-tip="Bank Statements">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<path d="M3 9h18M4 9V7l8-4 8 4v2M5 9v8M9 9v8M15 9v8M19 9v8M2 21h20"></path>
+</svg>
+</button>
+<!-- Journal: spiral notebook + pencil -->
+<button class="side-btn" data-tip="Journal Manager">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<rect height="18" rx="2" width="12" x="5" y="3"></rect>
+<path d="M7 6h8M7 9h8M7 12h5"></path>
+<path d="M5 7h-1M5 10h-1M5 13h-1M5 16h-1"></path>
+<path d="M16 16l3 3M14 17l2-2 3 3-2 2z"></path>
+</svg>
+</button>
+<!-- Reports: graph -->
+<button class="side-btn" data-tip="Reports">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<rect height="18" rx="2" width="18" x="3" y="3"></rect>
+<path d="M7 15l3-3 3 2 4-5"></path>
+<path d="M6 17h12"></path>
+</svg>
+</button>
+<!-- Security -->
+<button class="side-btn" data-tip="Security">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewbox="0 0 24 24">
+<path d="M12 2l8 3v6c0 6-4 9.5-8 11-4-1.5-8-5-8-11V5z"></path>
+</svg>
+</button>
+<button class="side-btn" data-tip="Build report" id="navBuildReport"><svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+<path d="M21 5v6c0 1.7-4 3-9 3s-9-1.3-9-3V5"></path>
+<path d="M3 11v6c0 1.7 4 3 9 3s9-1.3 9-3v-6"></path>
+</svg></button></nav><main class="main">
+<div class="page">
+<div class="title-row"><h1 class="title">Reports</h1></div>
+<div class="toolbar">
+<div style="flex:1;min-width:240px">
+<input id="searchBox" placeholder="Search reports…" type="search"/>
+</div>
+</div>
+<div id="groups">
+<div class="group open">
+<div class="group-h"><div class="group-title">Finance (demo)</div><div class="group-meta">4 reports</div></div>
+<div class="group-c">
+<div class="cards">
+<div class="card"><h4>P&amp;L by Region</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Profit &amp; Loss by region for consolidation</div></div>
+<div class="card"><h4>Cash Flow Forecast</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Projected cash movements next 12 weeks</div></div>
+<div class="card"><h4>Monthly Expense Report</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Expense lines aggregated by cost centre</div></div>
+<div class="card"><h4>Supplier Payments – Last Quarter</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">AP payments last quarter</div></div>
+</div>
+</div>
+</div>
+<div class="group open">
+<div class="group-h"><div class="group-title">Sales &amp; Ops (demo)</div><div class="group-meta">6 reports</div></div>
+<div class="group-c">
+<div class="cards">
+<div class="card"><h4>Daily Sales Summary</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Sales totals by market and channel</div></div>
+<div class="card"><h4>Top 20 Customers</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Top customers by revenue</div></div>
+<div class="card"><h4>Travel Bookings – AU</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Daily bookings for AU market</div></div>
+<div class="card"><h4>Revenue by Product Line</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Revenue split by product family</div></div>
+<div class="card"><h4>Marketing Spend Analysis</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Spend by campaign and channel</div></div>
+<div class="card"><h4>Headcount by Department</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Active headcount and changes</div></div>
+</div>
+</div>
+</div>
+<div class="group open">
+<div class="group-h"><div class="group-title">Compliance (demo)</div><div class="group-meta">2 reports</div></div>
+<div class="group-c">
+<div class="cards">
+<div class="card"><h4>Compliance Exceptions</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Policy exceptions requiring review</div></div>
+<div class="card"><h4>Audit Trail Summary</h4><div class="actions"><button class="secondary">Run</button><button class="primary">Schedule</button></div><div class="desc">Recent access and change logs</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main><div class="modal" id="modalSchedule">
+<div aria-labelledby="dlgTitleSchedule" aria-modal="true" class="dialog" role="dialog">
+<div class="dialog-h"><strong id="dlgTitleSchedule">Schedule Report</strong></div>
+<div class="nav">
+<div class="nav-header">Schedules</div>
+<div id="schNav"></div>
+<div class="nav-footer"><button class="ghost" id="addScheduleBtn" type="button">+ Add schedule</button></div>
+</div>
+<div class="dialog-body" id="dialogBodySchedule">
+<div class="section">
+<h3>Schedule title</h3>
+<input id="scheduleTitle" placeholder="e.g. Daily to Ops / Weekly to Finance" type="text"/>
+</div>
+<div class="section">
+<h3>Cadence &amp; Timing</h3>
+<div class="cadence-grid">
+<div class="stack">
+<div class="radio-inline-skinny">
+<label><input name="freq" type="radio" value="daily"/> Daily</label>
+<label><input name="freq" type="radio" value="weekly"/> Weekly</label>
+<label><input name="freq" type="radio" value="monthly"/> Monthly</label>
+<label><input name="freq" type="radio" value="custom"/> Custom</label>
+</div>
+<div id="weeklyBlock" style="margin-top:6px;display:none">
+<div class="weekday" id="weekdayBtns"></div>
+</div>
+<div id="monthlyBlock" style="margin-top:6px;display:none">
+<label>Day of month <input id="dayOfMonth" max="31" min="1" type="number" value="1"/></label>
+</div>
+<div class="rowish" id="customBlock" style="margin-top:6px;display:none">
+<label>Every <input id="customDays" min="1" style="width:90px" type="number" value="2"/> day(s)</label>
+<span></span>
+</div>
+</div>
+<div class="stack">
+<label>Time of day <input id="time" step="300" type="time" value="07:00"/></label>
+<label>Time zone
+                <select id="tz">
+<option>Australia/Brisbane</option>
+<option>Australia/Sydney</option>
+<option>Pacific/Auckland</option>
+<option>UTC</option>
+</select>
+</label>
+<label>End date (optional) <input id="endDate" type="date"/></label>
+</div>
+</div>
+</div>
+<div class="section">
+<h3>Delivery</h3>
+<label class="small" style="display:block;margin-bottom:4px">Type email and press Enter</label>
+<div aria-label="Recipients" class="chips-input" id="recWrap">
+<div id="chips"></div>
+<input id="recInput" placeholder="" type="text"/>
+</div>
+</div>
+<div class="section">
+<h3>Variable attributes</h3>
+<label>Region
+            <select id="region">
+<option>AU</option>
+<option>NZ</option>
+<option>RSA</option>
+<option>Global</option>
+</select>
+</label>
+<div class="rowish" style="margin-top:6px">
+<div>
+<label>Employee start</label>
+<div class="radio-inline-skinny">
+<label><input checked="" name="empStartMode" type="radio" value="relative"/> Relative</label>
+<label><input name="empStartMode" type="radio" value="absolute"/> Dates</label>
+</div>
+<div id="empStartRel" style="margin-top:4px;">
+<div class="inline">
+<select aria-label="Start mode" id="empStartKind">
+<option value="last">in the last</option>
+<option value="next">in the next</option>
+<option value="between">between</option>
+</select>
+<div class="inline" id="empStartSingle">
+<input aria-label="Start amount" id="empStartAmt" min="1" type="number" value="1"/>
+<select aria-label="Start unit" id="empStartUnit">
+<option selected="" value="days">days</option>
+<option value="months">months</option>
+</select>
+</div>
+</div>
+<div class="rowish" id="empStartBetween" style="display:none">
+<label class="inline"><span class="small">Look-back</span>
+<input id="empStartBackAmt" min="0" style="width:80px" type="number" value="1"/>
+<select id="empStartBackUnit"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+<label class="inline"><span class="small">Look-ahead</span>
+<input id="empStartFwdAmt" min="0" style="width:80px" type="number" value="0"/>
+<select id="empStartFwdUnit"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+</div>
+</div>
+<div id="empStartAbs" style="margin-top:4px; display:none">
+<div class="rowish">
+<label>From<input id="empStartFrom" type="date"/></label>
+<label>To<input id="empStartTo" type="date"/></label>
+</div>
+</div>
+</div>
+<div>
+<label>Employee end</label>
+<div class="radio-inline-skinny">
+<label><input checked="" name="empEndMode" type="radio" value="relative"/> Relative</label>
+<label><input name="empEndMode" type="radio" value="absolute"/> Dates</label>
+</div>
+<div id="empEndRel" style="margin-top:4px;">
+<div class="inline">
+<select aria-label="End mode" id="empEndKind">
+<option value="last">in the last</option>
+<option value="next">in the next</option>
+<option value="between">between</option>
+</select>
+<div class="inline" id="empEndSingle">
+<input aria-label="End amount" id="empEndAmt" min="1" type="number" value="1"/>
+<select aria-label="End unit" id="empEndUnit">
+<option selected="" value="days">days</option>
+<option value="months">months</option>
+</select>
+</div>
+</div>
+<div class="rowish" id="empEndBetween" style="display:none">
+<label class="inline"><span class="small">Look-back</span>
+<input id="empEndBackAmt" min="0" style="width:80px" type="number" value="1"/>
+<select id="empEndBackUnit"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+<label class="inline"><span class="small">Look-ahead</span>
+<input id="empEndFwdAmt" min="0" style="width:80px" type="number" value="0"/>
+<select id="empEndFwdUnit"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+</div>
+</div>
+<div id="empEndAbs" style="margin-top:4px; display:none">
+<div class="rowish">
+<label>From<input id="empEndFrom" type="date"/></label>
+<label>To<input id="empEndTo" type="date"/></label>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="dialog-f schedule-footer"><button class="secondary" id="scheduleCancel">Cancel</button><button class="primary" id="scheduleSaveExit">Save and Exit</button></div>
+<div class="dialog-f">
+<button class="" id="cancelBtn">Cancel</button>
+<button class="" id="saveBtn">Save as Template</button>
+<button class="primary" id="saveRunNowBtn">Run Report</button>
+</div>
+</div>
+</div><div class="modal" id="modalRun">
+<div aria-labelledby="dlgTitleRun" aria-modal="true" class="dialog" role="dialog">
+<div class="dialog-h"><strong id="dlgTitleRun">Run Report</strong></div>
+<div class="nav">
+<div class="nav-header">Saved reports</div>
+<div id="runNav"></div>
+<div class="nav-footer"><button class="ghost" id="addRunBtn" type="button">+ Add report</button></div>
+</div>
+<div class="dialog-body" id="dialogBodyRun">
+<div class="section">
+<h3>Report name</h3>
+<input id="runTitle" placeholder="e.g. Sales (AU) – This week" type="text"/>
+</div>
+<div class="section">
+<h3>Also send report to email (Optional)</h3>
+<label class="small" style="display:block;margin-bottom:4px">Type email and press Enter</label>
+<div aria-label="Recipients" class="chips-input" id="recWrapRun">
+<div id="chipsRun"></div>
+<input id="recInputRun" placeholder="" type="text"/>
+</div>
+</div>
+<div class="section">
+<h3>Variables</h3>
+<label>Region
+            <select id="regionRun">
+<option>AU</option>
+<option>NZ</option>
+<option>RSA</option>
+<option>Global</option>
+</select>
+</label>
+<div class="rowish" style="margin-top:6px">
+<div>
+<label>Employee start</label>
+<div class="radio-inline-skinny">
+<label><input checked="" name="empStartModeRun" type="radio" value="relative"/> Relative</label>
+<label><input name="empStartModeRun" type="radio" value="absolute"/> Dates</label>
+</div>
+<div id="empStartRelRun" style="margin-top:4px;">
+<div class="inline">
+<select aria-label="Start mode" id="empStartKindRun">
+<option value="last">in the last</option>
+<option value="next">in the next</option>
+<option value="between">between</option>
+</select>
+<div class="inline" id="empStartSingleRun">
+<input aria-label="Start amount" id="empStartAmtRun" min="1" type="number" value="1"/>
+<select aria-label="Start unit" id="empStartUnitRun">
+<option selected="" value="days">days</option>
+<option value="months">months</option>
+</select>
+</div>
+</div>
+<div class="rowish" id="empStartBetweenRun" style="display:none">
+<label class="inline"><span class="small">Look-back</span>
+<input id="empStartBackAmtRun" min="0" style="width:80px" type="number" value="1"/>
+<select id="empStartBackUnitRun"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+<label class="inline"><span class="small">Look-ahead</span>
+<input id="empStartFwdAmtRun" min="0" style="width:80px" type="number" value="0"/>
+<select id="empStartFwdUnitRun"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+</div>
+</div>
+<div id="empStartAbsRun" style="margin-top:4px; display:none">
+<div class="rowish">
+<label>From<input id="empStartFromRun" type="date"/></label>
+<label>To<input id="empStartToRun" type="date"/></label>
+</div>
+</div>
+</div>
+<div>
+<label>Employee end</label>
+<div class="radio-inline-skinny">
+<label><input checked="" name="empEndModeRun" type="radio" value="relative"/> Relative</label>
+<label><input name="empEndModeRun" type="radio" value="absolute"/> Dates</label>
+</div>
+<div id="empEndRelRun" style="margin-top:4px;">
+<div class="inline">
+<select aria-label="End mode" id="empEndKindRun">
+<option value="last">in the last</option>
+<option value="next">in the next</option>
+<option value="between">between</option>
+</select>
+<div class="inline" id="empEndSingleRun">
+<input aria-label="End amount" id="empEndAmtRun" min="1" type="number" value="1"/>
+<select aria-label="End unit" id="empEndUnitRun">
+<option selected="" value="days">days</option>
+<option value="months">months</option>
+</select>
+</div>
+</div>
+<div class="rowish" id="empEndBetweenRun" style="display:none">
+<label class="inline"><span class="small">Look-back</span>
+<input id="empEndBackAmtRun" min="0" style="width:80px" type="number" value="1"/>
+<select id="empEndBackUnitRun"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+<label class="inline"><span class="small">Look-ahead</span>
+<input id="empEndFwdAmtRun" min="0" style="width:80px" type="number" value="0"/>
+<select id="empEndFwdUnitRun"><option selected="" value="days">days</option><option value="months">months</option></select>
+</label>
+</div>
+</div>
+<div id="empEndAbsRun" style="margin-top:4px; display:none">
+<div class="rowish">
+<label>From<input id="empEndFromRun" type="date"/></label>
+<label>To<input id="empEndToRun" type="date"/></label>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="dialog-f">
+<button class="" id="cancelRun">Cancel</button>
+<button class="" id="saveRun">Save as Template</button>
+<button class="primary" id="runNow">Run Report</button>
+</div>
+</div>
+</div><script>
+    // ---- Seeded reports ----
+    const seededReports = [
+      {name:"P&L by Region",desc:"Profit & Loss by region for consolidation"},
+      {name:"Daily Sales Summary",desc:"Sales totals by market and channel"},
+      {name:"Monthly Expense Report",desc:"Expense lines aggregated by cost centre"},
+      {name:"Top 20 Customers",desc:"Top customers by revenue"},
+      {name:"Travel Bookings – AU",desc:"Daily bookings for AU market"},
+      {name:"Cash Flow Forecast",desc:"Projected cash movements next 12 weeks"},
+      {name:"Revenue by Product Line",desc:"Revenue split by product family"},
+      {name:"Headcount by Department",desc:"Active headcount and changes"},
+      {name:"Marketing Spend Analysis",desc:"Spend by campaign and channel"},
+      {name:"Supplier Payments – Last Quarter",desc:"AP payments last quarter"}
+    ];
 
-    <div class="editor-wrap">
-      <div class="editor-toolbar">
-        <div class="row">
-          <span style="font-size:12px;color:#94a3b8">Shortcuts: Ctrl/Cmd+Enter (no-op here) • Ctrl/Cmd+S Save template</span>
-        </div>
-        <div class="spacer"></div>
-        <div class="row" aria-hidden="true">
-          <span style="font-size:12px;color:#94a3b8">Line numbers • Bracket match • Autocomplete</span>
-        </div>
-      </div>
-      <div class="editor-pad">
-        <textarea id="sqlEditor"></textarea>
-      </div>
-    </div>
-    <div class="ribbon" id="ribbon">Ready</div>
-  </div>
+    const sections = [
+      { title: "Finance (demo)", filter: r => ["P&L by Region","Cash Flow Forecast","Monthly Expense Report","Supplier Payments – Last Quarter"].includes(r.name) },
+      { title: "Sales & Ops (demo)", filter: r => ["Daily Sales Summary","Top 20 Customers","Travel Bookings – AU","Revenue by Product Line","Marketing Spend Analysis","Headcount by Department"].includes(r.name) },
+    ];
 
-  <!-- CodeMirror JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/sql-hint.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sql-formatter@15.3.2/dist/sql-formatter.min.js"></script>
+    const scheduleLibrary = {
+      "P&L by Region": [
+        { label:"Daily", recipients:"execs@flightcentre.com.au", freq:"daily", time:"07:00", tz:"Australia/Brisbane" }
+      ],
+      "Daily Sales Summary": [
+        { label:"Daily", recipients:"finance@flightcentre.com.au", freq:"daily", time:"09:00", tz:"Australia/Brisbane" }
+      ]
+    };
 
-  <script>
-    (function(){
-      const ribbon = document.getElementById('ribbon');
-      function toast(msg){ ribbon.textContent = msg; ribbon.style.background='#dcfce7'; ribbon.style.color='#065f46';
-        setTimeout(()=>{ ribbon.textContent='Ready'; ribbon.style.background='#fef3c7'; ribbon.style.color='#78350f'; }, 1200); }
+    const groupsEl=document.getElementById("groups");
+    const searchBox=document.getElementById("searchBox");
+    const demoToggle=document.getElementById("demoToggle");
 
-      const textarea = document.getElementById('sqlEditor');
+    function render(){
+      groupsEl.innerHTML='';
+      const useDemo = !!demoToggle.checked;
+      if(!useDemo){
+        const empty = document.createElement("div");
+        empty.className="group open";
+        empty.innerHTML = '<div class="group-h"><div class="group-title">No data</div><div>+</div></div><div class="group-c"><div style="padding:12px;color:#6b7280">Demo data is off.</div></div>';
+        empty.querySelector(".group-h").onclick=()=>empty.classList.toggle("open");
+        groupsEl.appendChild(empty);
+        return;
+      }
+
+      const q = (searchBox && searchBox.value ? searchBox.value.trim().toLowerCase() : "");
+      sections.forEach(sec=>{
+        const all = seededReports.filter(sec.filter);
+        const items = q ? all.filter(r => r.name.toLowerCase().includes(q)) : all;
+
+        const group=document.createElement("div");
+        group.className="group open";
+        const header=document.createElement("div");
+        header.className="group-h";
+        header.innerHTML=`<div class="group-title">${sec.title}</div><div>+</div>`;
+        const content=document.createElement("div");
+        content.className="group-c";
+
+        const list=document.createElement("div");
+        list.className="report-list";
+
+        if(items.length===0){
+          const emptyRow=document.createElement("div");
+          emptyRow.style.cssText="padding:12px;color:#6b7280";
+          emptyRow.textContent = "No matching reports.";
+          content.appendChild(emptyRow);
+        } else {
+          items.forEach(r=>{
+            const row=document.createElement("div");
+            row.className="report-row";
+            row.innerHTML = `
+              <h4>${r.name}</h4>
+              <div class="small" title="${r.desc}">${r.desc}</div>
+              <button class="secondary">Run</button>
+              <button class="primary">Schedule</button>
+            `;
+            const runBtn=row.querySelector(".secondary");
+            const schBtn=row.querySelector(".primary");
+            runBtn.addEventListener('click',()=>openRun(r.name));
+            schBtn.addEventListener('click',()=>openSchedule(r.name));
+            list.appendChild(row);
+          });
+          content.appendChild(list);
+        }
+
+        group.appendChild(header);
+        group.appendChild(content);
+        groupsEl.appendChild(group);
+        header.onclick=()=>group.classList.toggle("open");
+      });
+    }
+
+    // --- Demo toggle persistence (default ON)
+    function initDemoToggle(){
+      const saved = localStorage.getItem('fp_demo_on');
+      if(saved===null){
+        demoToggle.checked = true; // default ON
+      } else {
+        demoToggle.checked = saved === '1';
+      }
+      demoToggle.addEventListener('change', () => {
+        localStorage.setItem('fp_demo_on', demoToggle.checked ? '1' : '0');
+        render();
+      });
+    }
+
+    // ---------- Shared chips builder ----------
+    function makeChipInput(rootEl, list){
+      const chips = rootEl.querySelector('[id^="chips"]');
+      const input = rootEl.querySelector('input');
+      function renderChips(){
+        chips.innerHTML='';
+        list.forEach((email, idx)=>{
+          const el = document.createElement('span');
+          el.className='chip'; el.textContent=email;
+          const x=document.createElement('button'); x.textContent='✕'; x.onclick=()=>{ list.splice(idx,1); renderChips(); };
+          el.appendChild(x); chips.appendChild(el);
+        });
+      }
+      function addFrom(text){
+        const parts = text.split(/[,\s]+/).map(v=>v.trim()).filter(Boolean);
+        parts.forEach(p=>{ if(!list.includes(p)) list.push(p); });
+        renderChips();
+      }
+      rootEl.addEventListener('click', ()=> input.focus({preventScroll:true}));
+      input.addEventListener('keydown', (e)=>{
+        if(e.key==='Enter' || e.key===','){ e.preventDefault(); const v=input.value.trim(); if(v){ addFrom(v); input.value=''; } }
+        else if(e.key==='Backspace' && !input.value){ list.pop(); renderChips(); }
+      });
+      input.addEventListener('blur', ()=>{ const v=input.value.trim(); if(v){ addFrom(v); input.value=''; } });
+      input.addEventListener('paste', (e)=>{ e.preventDefault(); addFrom((e.clipboardData||window.clipboardData).getData('text')); input.value=''; });
+      renderChips();
+      return {render: renderChips, addFrom, input};
+    }
+
+    // ---------- Schedule modal state ----------
+    const modalSchedule = document.getElementById("modalSchedule");
+    const cancelBtn = document.getElementById("cancelBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const runNowBtn = document.getElementById("saveRunNowBtn");
+    const addScheduleBtn=document.getElementById("addScheduleBtn");
+    const schNav=document.getElementById("schNav");
+    const dialogBodySchedule=document.getElementById("dialogBodySchedule");
+
+    const titleEl=document.getElementById("scheduleTitle");
+    const freqRadios=Array.from(document.querySelectorAll('input[name="freq"]'));
+    const weeklyBlock=document.getElementById("weeklyBlock");
+    const monthlyBlock=document.getElementById("monthlyBlock");
+    const customBlock=document.getElementById("customBlock");
+    const weekdayBtns=document.getElementById("weekdayBtns");
+    const dayOfMonth=document.getElementById("dayOfMonth");
+    const customDays=document.getElementById("customDays");
+    const timeEl=document.getElementById("time");
+    const tzEl=document.getElementById("tz");
+    const endDateEl=document.getElementById("endDate");
+    const regionEl=document.getElementById("region");
+    const recWrap=document.getElementById("recWrap");
+
+    let SCHEDULES=[];
+    let activeId=null;
+    let recControl=null;
+
+    function makeSchedule(init={}){
+      return {
+        id: Math.random().toString(36).slice(2,9),
+        label: init.label || "Daily",
+        recipients: init.recipients ? [...init.recipients] : [],
+        freq: init.freq || "daily",
+        weekdays: init.weekdays || new Set(["Mon"]),
+        dayOfMonth: init.dayOfMonth || 1,
+        customDays: init.customDays || 2,
+        time: init.time || "07:00",
+        tz: init.tz || "Australia/Brisbane",
+        end: init.end || "",
+        region: init.region || "AU",
+        titleManual:false,
+
+        empStartMode: init.empStartMode || "relative",
+        empStartKind: init.empStartKind || "last",
+        empStartFrom: init.empStartFrom || "",
+        empStartTo: init.empStartTo || "",
+        empStartRel: init.empStartRel || { dir:"last", amt:1, unit:"days", back:{amt:1,unit:"days"}, fwd:{amt:0,unit:"days"} },
+
+        empEndMode: init.empEndMode || "relative",
+        empEndKind: init.empEndKind || "last",
+        empEndFrom: init.empEndFrom || "",
+        empEndTo: init.empEndTo || "",
+        empEndRel: init.empEndRel || { dir:"last", amt:1, unit:"days", back:{amt:1,unit:"days"}, fwd:{amt:0,unit:"days"} }
+      };
+    }
+
+    function openSchedule(reportName){
+      document.getElementById("dlgTitleSchedule").textContent=`Schedule Report – ${reportName}`;
+      const seeds = (scheduleLibrary[reportName] || [
+        { label:"Daily", recipients:"ops@flightcentre.com", freq:"daily", time:"07:00", tz:"Australia/Brisbane" }
+      ]).map(s => ({...s, recipients: (s.recipients || "").split(',').map(v=>v.trim()).filter(Boolean)}));
+      SCHEDULES = seeds.map(s => makeSchedule(s));
+      activeId = SCHEDULES[0].id;
+      buildNav();
+      bindUIToActive();
+      modalSchedule.classList.add("open");
+    }
+
+    function closeSchedule(){ modalSchedule.classList.remove("open"); }
+    cancelBtn.onclick=closeSchedule;
+    modalSchedule.addEventListener("click",(e)=>{ if(e.target===modalSchedule) closeSchedule(); });
+
+    function buildNav(){
+      schNav.innerHTML="";
+      SCHEDULES.forEach(s=>{
+        const item=document.createElement("div");
+        item.className="nav-item"+(s.id===activeId?" active":"");
+        item.onclick=()=>{ activeId=s.id; buildNav(); bindUIToActive(); };
+        const recPreview = s.recipients.length ? s.recipients.join(', ') : "No recipients";
+        item.innerHTML=`<div class="label"><div>${s.label}</div><div class="small">${recPreview}</div></div>
+                        <button class="ghost" title="Delete" aria-label="Delete">✕</button>`;
+        item.querySelector("button").onclick=(ev)=>{ ev.stopPropagation(); removeSchedule(s.id); };
+        schNav.appendChild(item);
+      });
+    }
+
+    function preserveModalScroll(fn){
+      const db = dialogBodySchedule;
+      const y = db ? db.scrollTop : 0;
+      const wy = window.scrollY;
+      fn();
+      if(db) db.scrollTop = y;
+      window.scrollTo({top: wy});
+    }
+
+    function removeSchedule(id){
+      if(SCHEDULES.length<=1) return;
+      preserveModalScroll(()=>{
+        const idx=SCHEDULES.findIndex(x=>x.id===id);
+        SCHEDULES.splice(idx,1);
+        if(activeId===id) activeId=SCHEDULES[0].id;
+        buildNav(); bindUIToActive();
+      });
+    }
+
+    addScheduleBtn.onclick=(e)=>{
+      e.preventDefault();
+      preserveModalScroll(()=>{
+        const s=makeSchedule({label:`Schedule ${SCHEDULES.length+1}`});
+        SCHEDULES.push(s); activeId=s.id; buildNav(); bindUIToActive();
+      });
+      if(recControl) recControl.input?.focus?.({preventScroll:true});
+    };
+
+    // weekday buttons once
+    const weekdayBtnsEl=document.getElementById("weekdayBtns");
+    if(!weekdayBtnsEl.childElementCount){
+      ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(d=>{
+        const b=document.createElement("button"); b.type="button"; b.textContent=d;
+        b.onclick=()=>{ b.classList.toggle("active"); const a=getActive(); if(!a) return; if(b.classList.contains("active")) a.weekdays.add(d); else a.weekdays.delete(d); updateAutoTitle(); };
+        weekdayBtnsEl.appendChild(b);
+      });
+    }
+
+    function toggleBlocks(freq){
+      document.getElementById("weeklyBlock").style.display = (freq==='weekly') ? 'block' : 'none';
+      document.getElementById("monthlyBlock").style.display = (freq==='monthly') ? 'block' : 'none';
+      document.getElementById("customBlock").style.display = (freq==='custom') ? 'block' : 'none';
+      bindUIToActive();
+    }
+
+    function getActive(){ return SCHEDULES.find(s=>s.id===activeId) || null; }
+
+    function setEmpMode(which, mode){
+      const s=getActive(); if(!s) return;
+      const startAbs=document.getElementById("empStartAbs");
+      const startRel=document.getElementById("empStartRel");
+      const endAbs=document.getElementById("empEndAbs");
+      const endRel=document.getElementById("empEndRel");
+      if(which==='start'){
+        s.empStartMode = mode;
+        startAbs.style.display = mode==='absolute' ? 'block' : 'none';
+        startRel.style.display = mode==='relative' ? 'block' : 'none';
+      }else{
+        s.empEndMode = mode;
+        endAbs.style.display = mode==='absolute' ? 'block' : 'none';
+        endRel.style.display = mode==='relative' ? 'block' : 'none';
+      }
+    }
+
+    function setEmpKind(which, kind){
+      const s=getActive(); if(!s) return;
+      const startSingle=document.getElementById("empStartSingle");
+      const startBetween=document.getElementById("empStartBetween");
+      const endSingle=document.getElementById("empEndSingle");
+      const endBetween=document.getElementById("empEndBetween");
+      if(which==='start'){
+        s.empStartKind = kind;
+        startSingle.style.display = (kind==='between') ? 'none' : 'flex';
+        startBetween.style.display = (kind==='between') ? 'grid' : 'none';
+        if(kind!=='between') s.empStartRel.dir = kind;
+      } else {
+        s.empEndKind = kind;
+        endSingle.style.display = (kind==='between') ? 'none' : 'flex';
+        endBetween.style.display = (kind==='between') ? 'grid' : 'none';
+        if(kind!=='between') s.empEndRel.dir = kind;
+      }
+    }
+
+    function genTitle(s){
+      if(s.freq==='daily') return "Daily";
+      if(s.freq==='weekly') return "Weekly" + ([...s.weekdays].length ? ` (${[...s.weekdays].join(", ")})` : "");
+      if(s.freq==='monthly') return `Monthly (day ${s.dayOfMonth})`;
+      return `Every ${s.customDays} day(s)`;
+    }
+    function updateAutoTitle(){
+      const s=getActive(); if(!s || s.titleManual) return;
+      const auto = genTitle(s); s.label = auto; titleEl.value = auto; buildNav();
+    }
+
+    function bindUIToActive(){
+      const s=getActive(); if(!s) return;
+
+      // one-time chip control per bind
+      recControl = makeChipInput(recWrap, s.recipients);
+
+      titleEl.value = s.label;
+      titleEl.oninput = ()=>{ s.label = titleEl.value || "Daily"; s.titleManual = true; buildNav(); };
+
+      freqRadios.forEach(r=>{ r.onchange=null; r.checked=(r.value===s.freq); r.onchange=()=>{ if(r.checked){ s.freq=r.value; toggleBlocks(s.freq); updateAutoTitle(); } }; });
+      document.getElementById("weeklyBlock").style.display = (s.freq==='weekly') ? 'block' : 'none';
+      document.getElementById("monthlyBlock").style.display = (s.freq==='monthly') ? 'block' : 'none';
+      document.getElementById("customBlock").style.display = (s.freq==='custom') ? 'block' : 'none';
+
+      Array.from(weekdayBtnsEl.children).forEach(btn=>{
+        if(s.weekdays.has(btn.textContent)) btn.classList.add("active"); else btn.classList.remove("active");
+        btn.onclick=()=>{ btn.classList.toggle("active"); if(btn.classList.contains("active")) s.weekdays.add(btn.textContent); else s.weekdays.delete(btn.textContent); updateAutoTitle(); };
+      });
+
+      dayOfMonth.value=s.dayOfMonth; dayOfMonth.oninput=()=>{ s.dayOfMonth = Number(dayOfMonth.value||1); updateAutoTitle(); };
+      customDays.value=s.customDays; customDays.oninput=()=>{ s.customDays = Number(customDays.value||2); updateAutoTitle(); };
+      timeEl.value=s.time; timeEl.oninput=()=> s.time = timeEl.value;
+      tzEl.value=s.tz || "Australia/Brisbane"; tzEl.oninput=()=> s.tz = tzEl.value;
+      endDateEl.value=s.end; endDateEl.oninput=()=> s.end = endDateEl.value;
+      regionEl.value=s.region; regionEl.oninput=()=> s.region = regionEl.value;
+
+      // Start/End modes & kinds
+      Array.from(document.querySelectorAll('input[name="empStartMode"]')).forEach(r=>{ r.onchange=null; r.checked=(r.value===s.empStartMode); r.onchange=()=> setEmpMode('start', r.value); });
+      Array.from(document.querySelectorAll('input[name="empEndMode"]')).forEach(r=>{ r.onchange=null; r.checked=(r.value===s.empEndMode); r.onchange=()=> setEmpMode('end', r.value); });
+      setEmpMode('start', s.empStartMode);
+      setEmpMode('end', s.empEndMode);
+
+      const empStartKindSel=document.getElementById("empStartKind");
+      const empEndKindSel=document.getElementById("empEndKind");
+      empStartKindSel.value = s.empStartKind; empStartKindSel.onchange = ()=> setEmpKind('start', empStartKindSel.value);
+      empEndKindSel.value = s.empEndKind; empEndKindSel.onchange = ()=> setEmpKind('end', empEndKindSel.value);
+      setEmpKind('start', s.empStartKind);
+      setEmpKind('end', s.empEndKind);
+    }
+
+    function save(){
+      alert("Template saved (mock).");
+    }
+    function runNowSchedule(){
+      alert("Report would run now (mock).");
+    }
+    saveBtn.addEventListener('click', save);
+    runNowBtn.addEventListener('click', runNowSchedule);
+
+    // ---------- Run modal logic with presets ----------
+    const modalRun=document.getElementById("modalRun");
+    const cancelRun=document.getElementById("cancelRun");
+    const saveRun=document.getElementById("saveRun");
+    const runNow=document.getElementById("runNow");
+    const runNav=document.getElementById("runNav");
+    const addRunBtn=document.getElementById("addRunBtn");
+
+    const runTitle=document.getElementById("runTitle");
+    const regionRun=document.getElementById("regionRun");
+
+    // recipients chips (run)
+    const recWrapRun=document.getElementById("recWrapRun");
+    const recListRun=[];
+    const recRunCtrl = makeChipInput(recWrapRun, recListRun);
+
+    // Run state (presets)
+    let RUNS=[];
+    let runActiveId=null;
+    function makeRun(init={}){
+      return {
+        id: Math.random().toString(36).slice(2,9),
+        title: init.title || "New report",
+        recipients: init.recipients ? [...init.recipients] : [],
+        region: init.region || "AU",
+        empStartMode: init.empStartMode || "relative",
+        empStartKind: init.empStartKind || "last",
+        empStartRel: init.empStartRel || { dir:"last", amt:1, unit:"days", back:{amt:1,unit:"days"}, fwd:{amt:0,unit:"days"} },
+        empStartFrom: init.empStartFrom || "",
+        empStartTo: init.empStartTo || "",
+        empEndMode: init.empEndMode || "relative",
+        empEndKind: init.empEndKind || "last",
+        empEndRel: init.empEndRel || { dir:"last", amt:1, unit:"days", back:{amt:1,unit:"days"}, fwd:{amt:0,unit:"days"} },
+        empEndFrom: init.empEndFrom || "",
+        empEndTo: init.empEndTo || ""
+      };
+    }
+
+    function openRun(reportName){
+      document.getElementById("dlgTitleRun").textContent=`Run Report – ${reportName}`;
+      RUNS = [ makeRun({ title:`${reportName} – Default` }) ];
+      runActiveId = RUNS[0].id;
+      buildRunNav();
+      bindRun();
+      modalRun.classList.add("open");
+    }
+    function closeRun(){ modalRun.classList.remove("open"); }
+    cancelRun.onclick=closeRun;
+    modalRun.addEventListener("click",(e)=>{ if(e.target===modalRun) closeRun(); });
+
+    function buildRunNav(){
+      runNav.innerHTML="";
+      RUNS.forEach(r=>{
+        const item=document.createElement("div");
+        item.className="nav-item"+(r.id===runActiveId?" active":"");
+        item.onclick=()=>{ runActiveId=r.id; buildRunNav(); bindRun(); };
+        const recPreview = r.recipients.length ? r.recipients.join(', ') : "No recipients";
+        item.innerHTML=`<div class="label"><div>${r.title}</div><div class="small">${recPreview}</div></div>
+                        <button class="ghost" title="Delete" aria-label="Delete">✕</button>`;
+        item.querySelector("button").onclick=(ev)=>{ ev.stopPropagation(); removeRun(r.id); };
+        runNav.appendChild(item);
+      });
+    }
+    function removeRun(id){
+      if(RUNS.length<=1) return;
+      const idx=RUNS.findIndex(x=>x.id===id);
+      RUNS.splice(idx,1);
+      if(runActiveId===id) runActiveId=RUNS[0].id;
+      buildRunNav(); bindRun();
+    }
+    addRunBtn.onclick=()=>{
+      const r=makeRun({ title:`Report ${RUNS.length+1}` });
+      RUNS.push(r); runActiveId=r.id; buildRunNav(); bindRun();
+    };
+
+    // Bind Run page
+    function bindRun(){
+      const r = RUNS.find(x=>x.id===runActiveId); if(!r) return;
+      runTitle.value = r.title; runTitle.oninput = ()=> r.title = runTitle.value || "Untitled";
+      regionRun.value = r.region; regionRun.oninput = ()=> r.region = regionRun.value;
+      // sync chips
+      recListRun.length=0; r.recipients.forEach(x=>recListRun.push(x));
+      recRunCtrl.render();
+
+      // hook relative/absolute toggles
+      const startModeRadios = Array.from(document.querySelectorAll('input[name="empStartModeRun"]'));
+      const endModeRadios = Array.from(document.querySelectorAll('input[name="empEndModeRun"]'));
+      const startKind = document.getElementById("empStartKindRun");
+      const endKind = document.getElementById("empEndKindRun");
+
+      const startRel = document.getElementById("empStartRelRun");
+      const startAbs = document.getElementById("empStartAbsRun");
+      const endRel = document.getElementById("empEndRelRun");
+      const endAbs = document.getElementById("empEndAbsRun");
+
+      const startSingle = document.getElementById("empStartSingleRun");
+      const startBetween = document.getElementById("empStartBetweenRun");
+      const endSingle = document.getElementById("empEndSingleRun");
+      const endBetween = document.getElementById("empEndBetweenRun");
+
+      startModeRadios.forEach(rr=>{ rr.onchange=null; rr.checked=(rr.value===r.empStartMode); rr.onchange=()=>{ r.empStartMode=rr.value; startAbs.style.display = rr.value==='absolute'?'block':'none'; startRel.style.display = rr.value==='relative'?'block':'none'; }; });
+      endModeRadios.forEach(rr=>{ rr.onchange=null; rr.checked=(rr.value===r.empEndMode); rr.onchange=()=>{ r.empEndMode=rr.value; endAbs.style.display = rr.value==='absolute'?'block':'none'; endRel.style.display = rr.value==='relative'?'block':'none'; }; });
+      startAbs.style.display = r.empStartMode==='absolute'?'block':'none';
+      startRel.style.display = r.empStartMode==='relative'?'block':'none';
+      endAbs.style.display = r.empEndMode==='absolute'?'block':'none';
+      endRel.style.display = r.empEndMode==='relative'?'block':'none';
+
+      startKind.value = r.empStartKind; startKind.onchange = ()=>{ r.empStartKind = startKind.value; const b = (startKind.value==='between'); startSingle.style.display=b?'none':'flex'; startBetween.style.display=b?'grid':'none'; };
+      endKind.value = r.empEndKind; endKind.onchange = ()=>{ r.empEndKind = endKind.value; const b = (endKind.value==='between'); endSingle.style.display=b?'none':'flex'; endBetween.style.display=b?'grid':'none'; };
+      // init show/hide
+      startSingle.style.display = (r.empStartKind==='between') ? 'none' : 'flex';
+      startBetween.style.display = (r.empStartKind==='between') ? 'grid' : 'none';
+      endSingle.style.display = (r.empEndKind==='between') ? 'none' : 'flex';
+      endBetween.style.display = (r.empEndKind==='between') ? 'grid' : 'none';
+    }
+
+    saveRun.onclick=()=>{
+      const r = RUNS.find(x=>x.id===runActiveId); if(!r) return;
+      r.recipients = [...recListRun];
+      alert("Template saved (mock):\\n" + r.title + "\\nEmails: " + (r.recipients.join(', ')||'none'));
+    };
+    runNow.onclick=()=>{
+      const r = RUNS.find(x=>x.id===runActiveId); if(!r) return;
+      alert("Report would run now (mock):\\n" + r.title);
+      closeRun();
+    };
+
+    // Wire search & demo toggle
+    searchBox.addEventListener('input', render);
+
+    function init(){
+      const saved = localStorage.getItem('fp_demo_on');
+      if(saved===null){ demoToggle.checked = true; } else { demoToggle.checked = saved === '1'; }
+      demoToggle.addEventListener('change', () => {
+        localStorage.setItem('fp_demo_on', demoToggle.checked ? '1' : '0');
+        render();
+      });
+      render();
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  
+// Build Report modal: bulletproof open in Chrome/Edge
+(function(){
+  function openBuild(){ var m=document.getElementById('modalBuild'); if(m){ m.classList.add('open'); setTimeout(()=>{ var ta=document.getElementById('brSQL'); ta && ta.focus({preventScroll:true}); },0);} }
+  function closeBuild(){ var m=document.getElementById('modalBuild'); if(m) m.classList.remove('open'); }
+  // attach inline
+  var btn = document.getElementById('btnBuildReport');
+  if (btn){ btn.setAttribute('onclick','javascript:(function(){var m=document.getElementById("modalBuild"); if(m) m.classList.add("open");})();'); }
+  // capture + bubble
+  document.addEventListener('click', function(e){ if(e.target && (e.target.id==='btnBuildReport' || e.target.closest && e.target.closest('#btnBuildReport'))){ openBuild(); } }, true);
+  document.addEventListener('click', function(e){ if(e.target && (e.target.id==='btnBuildReport' || (e.target.closest && e.target.closest('#btnBuildReport')))){ openBuild(); } }, false);
+  // cancel + overlay + Esc
+  document.addEventListener('click', function(e){ if(e.target && e.target.id==='brCancel'){ closeBuild(); } });
+  document.addEventListener('click', function(e){ var m=document.getElementById('modalBuild'); if(e.target===m){ closeBuild(); } });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeBuild(); } });
+
+  // editor mirror/line nums/lint/format
+  var ta = document.getElementById('brSQL');
+  var pre = document.getElementById('hlPre');
+  var gut = document.getElementById('gutter');
+  var nameEl = document.getElementById('brReportName');
+  var descEl = document.getElementById('brReportDesc');
+  var colsEl = document.getElementById('brColumns');
+
+  function esc(x){ return (x||'').replace(/[&<>\"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  var KW = ['select','from','where','group','by','having','order','limit','join','left','right','inner','outer','on','and','or','union','as','distinct','case','when','then','else','end','with','exists','in','not','between','like'];
+  function hi(sql){
+    var e = esc(sql);
+    e = e.replace(/'[^']*'/g, m => '<span style="color:#fda4af">'+m+'</span>');
+    e = e.replace(/\b\d+(\.\d+)?\b/g, m => '<span style="color:#86efac">'+m+'</span>');
+    KW.forEach(k => { var re=new RegExp('\\b'+k+'\\b','gi'); e = e.replace(re, m => '<span style="color:#93c5fd;font-weight:700">'+m.toUpperCase()+'</span>'); });
+    e = e.replace(/(\*|=|<>|!=|<=|>=|<|>)/g, m => '<span style="color:#fbbf24">'+m+'</span>');
+    e = e.replace(/(--[^\n]*)/g, m => '<span style="color:#9ca3af;font-style:italic">'+m+'</span>');
+    return e || '<span style="color:#64748b">-- Write SQL here</span>';
+  }
+  function mirror(){ pre.innerHTML = hi(ta.value); }
+  function gutter(){ var n=(ta.value.split('\\n').length)||1; var b=''; for(var i=1;i<=n;i++){ b+= i+'\\n'; } gut.textContent=b; }
+  function saveDraft(){ localStorage.setItem('fp_build_draft', JSON.stringify({ name:nameEl.value, desc:descEl.value, sql:ta.value, cols:colsEl.value })); }
+  function lint(sql){
+    var issues=[], s=(sql||'').toLowerCase();
+    if(/\\bselect\\s+\\*\\b/.test(s)) issues.push('Avoid SELECT *; list columns.');
+    if(/\\bdrop\\s+(table|database)\\b/.test(s)) issues.push('DROP is dangerous.');
+    if(/\\btruncate\\s+table\\b/.test(s)) issues.push('TRUNCATE is destructive.');
+    if(/\\bdelete\\s+from\\b/.test(s) && !/\\bwhere\\b/.test(s)) issues.push('DELETE without WHERE.');
+    if(/\\bupdate\\s+\\w+/.test(s) && !/\\bwhere\\b/.test(s)) issues.push('UPDATE without WHERE.');
+    if(/\\bselect\\b/.test(s) && !/\\blimit\\b/.test(s)) issues.push('Consider LIMIT for previews.');
+    if(!/;\\s*$/.test(sql)) issues.push('Consider ending with a semicolon.');
+    return issues;
+  }
+  var lintPanel = document.getElementById('brLintPanel');
+  function renderLint(arr){ if(!arr.length){ lintPanel.style.display='none'; lintPanel.innerHTML=''; return; } lintPanel.style.display='block'; lintPanel.innerHTML='<strong>SQL Lint:</strong><ul style="margin:6px 0 0 18px">'+arr.map(i=>'<li>'+i+'</li>').join('')+'</ul>'; }
+  var lintTimer=null; function lintNow(){ clearTimeout(lintTimer); lintTimer=setTimeout(()=>{ renderLint(lint(ta.value)); },120); }
+
+  function fmt(sql){
+    if(!sql) return '';
+    var s = sql.replace(/\\t/g,'  ').replace(/\\s*,\\s*/g, ', ');
+    var clauses = ['select','from','where','group by','having','order by','limit','join','left join','right join','inner join','outer join','union','with','and','or'];
+    clauses.forEach(c=>{ var re=new RegExp('\\s('+c.replace(' ','\\s+')+')\\s','gi'); s=s.replace(re,'\\n$1 '); });
+    var lines=s.split('\\n'); var indent=0;
+    for(var i=0;i<lines.length;i++){ var L=lines[i].trim();
+      if(/^(from|where|group\\s+by|having|order\\s+by|limit)\\b/i.test(L)) indent=0;
+      if(/^(left|right|inner|outer)?\\s*join\\b/i.test(L)) indent=2;
+      if(/^(and|or)\\b/i.test(L)) lines[i]=' '.repeat(2)+L;
+      else lines[i]=(i===0?'':' '.repeat(indent))+L;
+    }
+    return lines.join('\\n').trim();
+  }
+  var btnFmt = document.getElementById('btnFormatSql');
+  btnFmt && btnFmt.addEventListener('click', function(){ ta.value = fmt(ta.value); mirror(); gutter(); lintNow(); saveDraft(); });
+  var btnCopy = document.getElementById('btnCopySql');
+  btnCopy && btnCopy.addEventListener('click', function(){ navigator.clipboard && navigator.clipboard.writeText(ta.value); });
+
+  ['input','keyup','change','paste','cut'].forEach(evt => ta.addEventListener(evt, function(){ mirror(); gutter(); lintNow(); saveDraft(); }));
+  ta.addEventListener('scroll', function(){ pre.scrollTop=ta.scrollTop; pre.scrollLeft=ta.scrollLeft; document.getElementById('gutter').scrollTop=ta.scrollTop; });
+  ta.addEventListener('keydown', function(e){ if(e.key==='Tab'){ e.preventDefault(); var st=ta.selectionStart,en=ta.selectionEnd; var v=ta.value; ta.value=v.substring(0,st)+'  '+v.substring(en); ta.selectionStart=ta.selectionEnd=st+2; mirror(); gutter(); saveDraft(); } });
+
+  // Init from draft
+  try{
+    var d=JSON.parse(localStorage.getItem('fp_build_draft')||'{}');
+    if(d){ nameEl.value=d.name||''; descEl.value=d.desc||''; ta.value=d.sql||ta.value; colsEl.value=d.cols||''; mirror(); gutter(); lintNow(); }
+  }catch(_){}
+
+  // Demo toggle show/hide
+  var t=document.getElementById('demoToggle'), g=document.getElementById('groups');
+  if(t && g){
+    var saved=localStorage.getItem('fp_demo_on'); if(saved===null){ t.checked=true; localStorage.setItem('fp_demo_on','1'); } else { t.checked=(saved==='1'); }
+    g.style.display=t.checked?'block':'none';
+    t.addEventListener('change', function(){ localStorage.setItem('fp_demo_on', t.checked?'1':'0'); g.style.display=t.checked?'block':'none'; });
+  }
+})();
+
+// RICH5 tweaks: ensure line numbers and visibility
+(function(){
+  function ensureLineNumbers(){
+    var ta = document.getElementById('brSQL');
+    var gut = document.getElementById('gutter');
+    if(!ta || !gut) return;
+    var n=(ta.value.split('\n').length)||1;
+    var buf='';
+    for(var i=1;i<=n;i++){ buf += i + '\n'; }
+    gut.textContent = buf;
+  }
+  document.addEventListener('click', function(e){
+    if(e.target && (e.target.id==='btnBuildReport' || (e.target.closest && e.target.closest('#btnBuildReport')))){
+      setTimeout(ensureLineNumbers, 0);
+    }
+  }, true);
+  window.addEventListener('load', ensureLineNumbers);
+})();
+
+</script><script>
+function highlightSQL(text) {
+    let keywords = /(SELECT|FROM|WHERE|AND|OR|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|LEFT|RIGHT|ON|GROUP BY|ORDER BY|LIMIT)/gi;
+    let strings = /('[^']*'|"[^"]*")/g;
+    let numbers = /\b(\d+(?:\.\d+)?)\b/g;
+    return text
+        .replace(strings, '<span class="sql-string">$1</span>')
+        .replace(numbers, '<span class="sql-number">$1</span>')
+        .replace(keywords, '<span class="sql-keyword">$1</span>');
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const sqlInput = document.getElementById("brSQL");
+    const highlightDiv = document.createElement("div");
+    highlightDiv.id = "sqlHighlight";
+    highlightDiv.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;white-space:pre-wrap;font-family:monospace;font-size:14px;color:#f8fafc;";
+    sqlInput.parentElement.style.position = "relative";
+    sqlInput.parentElement.appendChild(highlightDiv);
+
+    sqlInput.addEventListener("input", () => {
+        let val = sqlInput.value;
+        highlightDiv.innerHTML = highlightSQL(val);
+    });
+    sqlInput.addEventListener("scroll", () => {
+        highlightDiv.scrollTop = sqlInput.scrollTop;
+    });
+});
+</script><script>
+(function(){
+  function highlightSQL(text) {
+    // Keywords, strings, numbers
+    let keywords = /(\bSELECT\b|\bFROM\b|\bWHERE\b|\bAND\b|\bOR\b|\bINSERT\b|\bINTO\b|\bVALUES\b|\bUPDATE\b|\bSET\b|\bDELETE\b|\bJOIN\b|\bLEFT\b|\bRIGHT\b|\bON\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|\bWITH\b|\bHAVING\b|\bUNION\b|\bCASE\b|\bWHEN\b|\bTHEN\b|\bELSE\b|\bEND\b)/gi;
+    let strings = /('[^']*'|"[^"]*")/g;
+    let numbers = /\b(\d+(?:\.\d+)?)\b/g;
+    return text
+      .replace(strings, '<span class="sql-string">$1</span>')
+      .replace(numbers, '<span class="sql-number">$1</span>')
+      .replace(keywords, '<span class="sql-keyword">$1</span>');
+  }
+
+  function updateLineNumbers(ta, gutter){
+    const lines = (ta.value.split('\n').length) || 1;
+    let buf = '';
+    for(let i=1;i<=lines;i++){ buf += i + '\n'; }
+    gutter.textContent = buf;
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const ta = document.getElementById('brSQL');
+    const hi = document.getElementById('sqlHighlight');
+    const gutter = document.getElementById('sqlLineNums');
+
+    if(!ta || !hi || !gutter) return;
+
+    const render = () => {
+      hi.innerHTML = highlightSQL(ta.value || '');
+      updateLineNumbers(ta, gutter);
+    };
+
+    ['input','change','keyup','paste','cut'].forEach(evt => ta.addEventListener(evt, render));
+    ta.addEventListener('scroll', () => {
+      hi.scrollTop = ta.scrollTop;
+      hi.scrollLeft = ta.scrollLeft;
+      gutter.scrollTop = ta.scrollTop;
+    });
+
+    // initial
+    render();
+    // focus caret visible on open
+    setTimeout(()=>{ ta.focus({preventScroll:true}); }, 50);
+  });
+})();
+</script><script>
+(function(){
+  function updateGutter(ta, gut){
+    const lines = (ta.value.split('\n').length) || 1;
+    let buf=''; for(let i=1;i<=lines;i++){ buf += i + '\n'; }
+    gut.textContent = buf;
+  }
+  function resizeEditor(){
+    const shell = document.getElementById('sqlEditorShell');
+    const ta = document.getElementById('brSQL');
+    if(!shell || !ta) return;
+    const vh = window.innerHeight || 900;
+    const h = Math.max(500, Math.floor(vh * 0.72)); // ~72vh minimum 500px
+    shell.style.minHeight = h + 'px';
+    ta.style.height = h + 'px';
+  }
+  function formatSQL(sql){
+    if(!sql) return '';
+    let s = sql.replace(/\t/g,'  ').replace(/\s*,\s*/g, ', ');
+    const clauses = ['select','from','where','group by','having','order by','limit','join','left join','right join','inner join','outer join','union','with','and','or'];
+    clauses.forEach(c=>{ const re = new RegExp('\\s(' + c.replace(' ','\\s+') + ')\\s','gi'); s = s.replace(re, '\n$1 '); });
+    const lines = s.split('\n'); let ind=0;
+    for(let i=0;i<lines.length;i++){ const L = lines[i].trim();
+      if(/^(from|where|group\s+by|having|order\s+by|limit)\b/i.test(L)) ind=0;
+      if(/^(left|right|inner|outer)?\s*join\b/i.test(L)) ind=2;
+      if(/^(and|or)\b/i.test(L)) lines[i] = ' '.repeat(2) + L; else lines[i] = (i===0?'':' '.repeat(ind)) + L;
+    }
+    return lines.join('\n').trim();
+  }
+  function lintSQL(sql){
+    const out=[]; const s=(sql||'').toLowerCase();
+    if(/\bselect\s+\*\b/.test(s)) out.push('Avoid SELECT *; list specific columns.');
+    if(/\bdrop\s+(table|database)\b/.test(s)) out.push('DROP is dangerous in reports.');
+    if(/\btruncate\s+table\b/.test(s)) out.push('TRUNCATE is destructive.');
+    if(/\bdelete\s+from\b/.test(s) && !/\bwhere\b/.test(s)) out.push('DELETE without WHERE.');
+    if(/\bupdate\s+\w+/.test(s) && !/\bwhere\b/.test(s)) out.push('UPDATE without WHERE.');
+    if(/\bselect\b/.test(s) && !/\blimit\b/.test(s)) out.push('Consider LIMIT for previews.');
+    if(!/;\s*$/.test(sql)) out.push('Consider ending with a semicolon.');
+    return out;
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    const ta = document.getElementById('brSQL');
+    const gut = document.getElementById('sqlGutter');
+    const lintPanel = document.getElementById('brLintPanel');
+    const fmtBtn = document.getElementById('btnFormatSql');
+    if(!ta || !gut) return;
+
+    function renderAll(){
+      updateGutter(ta, gut);
+      const issues = lintSQL(ta.value||'');
+      if(issues.length){ lintPanel.style.display='block'; lintPanel.innerHTML='<strong>SQL Lint:</strong><ul style="margin:6px 0 0 18px">'+issues.map(i=>'<li>'+i+'</li>').join('')+'</ul>'; }
+      else { lintPanel.style.display='none'; lintPanel.innerHTML=''; }
+    }
+
+    ['input','change','keyup','paste','cut'].forEach(ev=> ta.addEventListener(ev, renderAll));
+    ta.addEventListener('scroll', ()=>{ gut.scrollTop = ta.scrollTop; });
+
+    ta.addEventListener('keydown', (e)=>{
+      if(e.key==='Tab'){
+        e.preventDefault();
+        const st=ta.selectionStart, en=ta.selectionEnd, v=ta.value;
+        ta.value = v.slice(0,st) + '  ' + v.slice(en);
+        ta.selectionStart = ta.selectionEnd = st + 2;
+        renderAll();
+      }
+    });
+
+    fmtBtn && fmtBtn.addEventListener('click', ()=>{ ta.value = formatSQL(ta.value); renderAll(); });
+
+    // init
+    resizeEditor();
+    renderAll();
+    window.addEventListener('resize', resizeEditor);
+  });
+})();
+</script></div><section hidden="hidden" id="buildView"><div class="build-topbar"><button id="btnBuildBack">← Back</button><div class="build-title">Build Report</div><div class="build-actions"><button class="secondary" id="btnTest">Test</button><button class="primary" id="btnSave">Save</button><button class="secondary" id="btnExit">Exit</button></div></div><div aria-label="SQL Editor" class="shell" role="region">
+<div class="header">
+<div class="title">SQL Editor</div>
+<div aria-label="Top toolbar" class="toolbar" role="toolbar">
+<div class="group">
+<label class="sr-only" for="dialect">Dialect</label>
+<select aria-label="SQL dialect" id="dialect">
+<option value="sql">ANSI SQL</option>
+<option value="postgresql">PostgreSQL</option>
+<option value="mysql">MySQL</option>
+<option value="tsql">T‑SQL</option>
+</select>
+</div>
+<div class="group">
+<button aria-label="Format SQL" id="btnFormat" type="button">Format</button>
+<button aria-label="Toggle wrap" id="btnWrap" type="button">Wrap</button>
+<button aria-label="Increase font size" id="btnBigger" type="button">A+</button>
+<button aria-label="Decrease font size" id="btnSmaller" type="button">A−</button>
+<button aria-label="Copy SQL" id="btnCopy" type="button">Copy</button>
+<button id="btnLint" type="button">Lint</button></div>
+</div>
+</div>
+<div class="editor-wrap">
+<div class="editor-toolbar">
+<div class="row">
+<span style="font-size:12px;color:#94a3b8">Shortcuts: Ctrl/Cmd+Enter (no-op here) • Ctrl/Cmd+S Save template</span>
+</div>
+<div class="spacer"></div>
+<div aria-hidden="true" class="row">
+<span style="font-size:12px;color:#94a3b8">Line numbers • Bracket match • Autocomplete</span>
+</div>
+</div>
+<div class="editor-pad">
+<textarea id="sqlEditor"></textarea>
+</div>
+</div>
+</div><div class="sql-lint-panel" id="lintPanel">Linter: Ready</div></section><script>
+(function(){
+  const main = document.getElementById('mainApp');
+  const view = document.getElementById('buildView');
+  const btn = document.getElementById('btnBuildReport');
+  const back = document.getElementById('btnBuildBack');
+
+  function openBuild(){
+    if(!main || !view) return;
+    main.style.display = 'none';
+    view.classList.add('open');
+    view.removeAttribute('hidden');
+    setTimeout(()=>{
+      const ta = document.getElementById('sqlEditor');
+      if(ta && ta.nextSibling && ta.nextSibling.CodeMirror){
+        ta.nextSibling.CodeMirror.refresh();
+      }
+    }, 60);
+    window.scrollTo({top:0, behavior:'smooth'});
+    history.pushState({build:true}, '', '#build-report');
+  }
+  function closeBuild(){
+    if(!main || !view) return;
+    view.classList.remove('open');
+    view.setAttribute('hidden','hidden');
+    main.style.display = '';
+    history.pushState({}, '', location.pathname + location.search);
+  }
+
+  if(btn) btn.addEventListener('click', (e)=>{ e.preventDefault(); openBuild(); });
+  if(back) back.addEventListener('click', closeBuild);
+  window.addEventListener('popstate', (e)=>{
+    if(location.hash === '#build-report'){ openBuild(); } else { closeBuild(); }
+  });
+  if(location.hash === '#build-report'){ openBuild(); }
+
+  // CodeMirror init (copied from the standalone)
+  (function(){
+    const ribbon = document.getElementById('ribbon');
+    function toast(msg){ if(!ribbon) return; ribbon.textContent = msg; ribbon.style.background='#dcfce7'; ribbon.style.color='#065f46';
+      setTimeout(()=>{ ribbon.textContent='Ready'; ribbon.style.background='#fef3c7'; ribbon.style.color='#78350f'; }, 1200); }
+    const textarea = document.getElementById('sqlEditor');
+    if(!textarea) return;
+    if(!textarea.value || !textarea.value.trim()){
       textarea.value = `-- Example query
 SELECT e.t4,
        COALESCE(e.preferred_name, e.first_name) AS first_name,
@@ -153,63 +1706,161 @@ FROM core_lite.employees e
 WHERE e.status = 'A'
 ORDER BY e.start_date DESC
 LIMIT 250;`;
+    }
+    let cm = CodeMirror.fromTextArea(textarea, {
+      mode: "text/x-sql",
+      theme: "material-darker",
+      lineNumbers: true,
+      styleActiveLine: true,
+      matchBrackets: true,
+      autofocus: true,
+      indentWithTabs: false,
+      smartIndent: true,
+      tabSize: 2,
+      indentUnit: 2,
+      lineWrapping: false,
+      extraKeys: {
+        "Ctrl-Space": "autocomplete",
+        "Cmd-S": saveTemplate,
+        "Ctrl-S": saveTemplate,
+        "Tab": function(cm){ cm.execCommand("indentMore"); },
+        "Shift-Tab": function(cm){ cm.execCommand("indentLess"); }
+      },
+      hintOptions: { completeSingle: false }
+    });
 
-      let cm = CodeMirror.fromTextArea(textarea, {
-        mode: "text/x-sql",
-        theme: "material-darker",
-        lineNumbers: true,
-        styleActiveLine: true,
-        matchBrackets: true,
-        autofocus: true,
-        indentWithTabs: false,
-        smartIndent: true,
-        tabSize: 2,
-        indentUnit: 2,
-        lineWrapping: false,
-        extraKeys: {
-          "Ctrl-Space": "autocomplete",
-          "Cmd-S": saveTemplate,
-          "Ctrl-S": saveTemplate,
-          "Tab": function(cm){ cm.execCommand("indentMore"); },
-          "Shift-Tab": function(cm){ cm.execCommand("indentLess"); }
-        },
-        hintOptions: { completeSingle: false }
-      });
+    // Buttons
+    let wrapped = false, fontSize = 14;
+    function applyFont(){ cm.getWrapperElement().style.fontSize = fontSize + 'px'; cm.refresh(); }
+    const btnWrap = document.getElementById('btnWrap');
+    const btnBigger = document.getElementById('btnBigger');
+    const btnSmaller = document.getElementById('btnSmaller');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnFormat = document.getElementById('btnFormat');
+    const dialect = document.getElementById('dialect');
+    if(btnWrap){ btnWrap.onclick = ()=>{ wrapped = !wrapped; cm.setOption('lineWrapping', wrapped); btnWrap.textContent = wrapped ? 'Unwrap' : 'Wrap'; }; }
+    if(btnBigger){ btnBigger.onclick = ()=>{ fontSize = Math.min(24, fontSize+1); applyFont(); }; }
+    if(btnSmaller){ btnSmaller.onclick = ()=>{ fontSize = Math.max(11, fontSize-1); applyFont(); }; }
+    if(btnCopy){ btnCopy.onclick = ()=>{ navigator.clipboard.writeText(cm.getValue()).then(()=> toast('Copied SQL ✓')); }; }
+    if(btnFormat){ btnFormat.onclick = ()=>{ try{ cm.setValue(sqlFormatter.format(cm.getValue(), { language: 'sql', uppercase: true })); toast('Formatted ✓'); }catch(e){} }; }
+    if(dialect){ dialect.addEventListener('change', ()=> toast('Dialect: ' + dialect.value)); }
 
-      // Button wiring
-      let wrapped = false, fontSize = 14;
-      function applyFont(){ cm.getWrapperElement().style.fontSize = fontSize + 'px'; cm.refresh(); }
-      document.getElementById('btnWrap').onclick = ()=>{
-        wrapped = !wrapped; cm.setOption('lineWrapping', wrapped);
-        document.getElementById('btnWrap').textContent = wrapped ? 'Unwrap' : 'Wrap';
-      };
-      document.getElementById('btnBigger').onclick = ()=>{ fontSize = Math.min(24, fontSize+1); applyFont(); };
-      document.getElementById('btnSmaller').onclick = ()=>{ fontSize = Math.max(11, fontSize-1); applyFont(); };
-      document.getElementById('btnCopy').onclick = ()=>{
-        navigator.clipboard.writeText(cm.getValue()).then(()=> toast('Copied SQL ✓'));
-      };
-      document.getElementById('btnFormat').onclick = ()=>{
-        try{
-          cm.setValue(sqlFormatter.format(cm.getValue(), { language: 'sql', uppercase: true }));
-          toast('Formatted ✓');
-        }catch(e){ /* ignore */ }
-      };
+    function saveTemplate(){ toast('Saved template ✓'); return false; }
 
-      // Dialect select (cosmetic here)
-      const dialect = document.getElementById('dialect');
-      dialect.addEventListener('change', ()=> toast('Dialect: ' + dialect.value));
-
-      function saveTemplate(){
-        toast('Saved template ✓');
-        return false;
-      }
-
-      // Handle container resize
-      const pad = document.querySelector('.editor-pad');
+    // Keep editor sized to pad
+    const pad = document.querySelector('.editor-pad');
+    if(pad){
       const ro = new ResizeObserver(()=>{ cm.setSize('100%', pad.clientHeight); cm.refresh(); });
       ro.observe(pad);
       cm.setSize('100%', pad.clientHeight);
-    })();
-  </script>
-</body>
+    }
+
+    // Linter wiring
+    const lintBtn = document.getElementById('btnLint');
+    const panel = document.getElementById('lintPanel');
+    if(lintBtn && panel){
+      lintBtn.addEventListener('click', ()=>{
+        const sql = cm.getValue();
+        const issues = [];
+        if(!/^\\s*select\\b/i.test(sql)) issues.push({sev:'err', msg:'Query should start with SELECT (read-only reports).'});
+        if(/(?:\\bdelete\\b|\\bupdate\\b|\\binsert\\b|\\bmerge\\b)/i.test(sql)) issues.push({sev:'err', msg:'Mutating statements detected (DELETE/UPDATE/INSERT/MERGE) — not allowed.'});
+        if(/\\bselect\\s+\\*/i.test(sql)) issues.push({sev:'warn', msg:'Avoid SELECT * — specify columns explicitly for stability.'});
+        if(/\\bwhere\\b/i.test(sql) === false && /\\bfrom\\b/i.test(sql)) issues.push({sev:'warn', msg:'No WHERE clause — confirm you intend to scan the full table(s).'});
+        if(sql.trim().length < 15) issues.push({sev:'warn', msg:'Query looks very short — is it complete?'});
+        if(/\\bjoin\\b/i.test(sql) && !/\\bon\\b/i.test(sql)) issues.push({sev:'err', msg:'JOIN without ON clause — likely a cross join by accident.'});
+        if(/;\\s*[\\s\\S]+\\S/.test(sql)) issues.push({sev:'warn', msg:'Multiple statements detected; reports should run a single SELECT.'});
+        if(/select|from|where|group by|order by|limit|join|left|right|inner|outer/i.test(sql) && !/[A-Z]{3,}/.test(sql)){
+          issues.push({sev:'warn', msg:'Consider uppercasing SQL keywords for readability (Format button can help).'});
+        }
+        if(!issues.length){
+          panel.innerHTML = '<span class="ok">No problems found ✓</span>';
+        }else{
+          panel.innerHTML = issues.map(i=>`<div><span class="${i.sev}">${i.sev.toUpperCase()}</span> — ${i.msg}</div>`).join('');
+        }
+        panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+      });
+    }
+  })();
+})();</script><script>
+(function(){
+  const main = document.getElementById('mainApp');
+  const view = document.getElementById('buildView');
+  const back = document.getElementById('btnBuildBack');
+  const navIcon = document.getElementById('navBuildReport');
+  const btnTest = document.getElementById('btnTest');
+  const btnSave = document.getElementById('btnSave');
+  const btnExit = document.getElementById('btnExit');
+
+  function openBuild(){
+    if(!main || !view) return;
+    main.style.display = 'none';
+    view.classList.add('open');
+    view.removeAttribute('hidden');
+    setTimeout(()=>{
+      const ta = document.getElementById('sqlEditor');
+      if(ta && ta.nextSibling && ta.nextSibling.CodeMirror){
+        ta.nextSibling.CodeMirror.refresh();
+      }
+    }, 50);
+    window.scrollTo({top:0, behavior:'smooth'});
+    history.pushState({build:true}, '', '#build-report');
+  }
+  function closeBuild(){
+    if(!main || !view) return;
+    view.classList.remove('open');
+    view.setAttribute('hidden','hidden');
+    main.style.display = '';
+    history.pushState({}, '', location.pathname + location.search);
+  }
+
+  if(navIcon) navIcon.addEventListener('click', (e)=>{ e.preventDefault(); openBuild(); });
+  if(back) back.addEventListener('click', closeBuild);
+  if(btnExit) btnExit.addEventListener('click', closeBuild);
+  if(btnTest) btnTest.addEventListener('click', ()=>{
+    // "Test" can run a quick lint + format (preview) without saving
+    const ta = document.getElementById('sqlEditor');
+    const cm = ta && ta.nextSibling && ta.nextSibling.CodeMirror;
+    if(!cm) return;
+    // Run linter
+    const panel = document.getElementById('lintPanel');
+    const sql = cm.getValue();
+    const issues = [];
+    if(!/^\s*select\b/i.test(sql)) issues.push({sev:'err', msg:'Query should start with SELECT (read-only reports).'});
+    if(/(?:\bdelete\b|\bupdate\b|\binsert\b|\bmerge\b)/i.test(sql)) issues.push({sev:'err', msg:'Mutating statements detected (DELETE/UPDATE/INSERT/MERGE) — not allowed.'});
+    if(/\bselect\s+\*/i.test(sql)) issues.push({sev:'warn', msg:'Avoid SELECT * — specify columns explicitly for stability.'});
+    if(/\bwhere\b/i.test(sql) === false && /\bfrom\b/i.test(sql)) issues.push({sev:'warn', msg:'No WHERE clause — confirm you intend to scan the full table(s).'});
+    if(sql.trim().length < 15) issues.push({sev:'warn', msg:'Query looks very short — is it complete?'});
+    if(/\bjoin\b/i.test(sql) && !/\bon\b/i.test(sql)) issues.push({sev:'err', msg:'JOIN without ON clause — likely a cross join by accident.'});
+    if(/;\s*[\s\S]+\S/.test(sql)) issues.push({sev:'warn', msg:'Multiple statements detected; reports should run a single SELECT.'});
+    if(/select|from|where|group by|order by|limit|join|left|right|inner|outer/i.test(sql) && !/[A-Z]{3,}/.test(sql)){
+      issues.push({sev:'warn', msg:'Consider uppercasing SQL keywords for readability (Format button can help).'});
+    }
+    if(panel){
+      panel.innerHTML = issues.length ? issues.map(i=>`<div><span class="${i.sev}">${i.sev.toUpperCase()}</span> — ${i.msg}</div>`).join('') : '<span class="ok">No problems found ✓</span>';
+      panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+  });
+  if(btnSave) btnSave.addEventListener('click', ()=>{
+    // Placeholder save — integrate with backend later
+    alert('Saved ✓');
+  });
+
+  // If user lands on #build-report directly
+  if(location.hash === '#build-report'){ openBuild(); }
+  window.addEventListener('popstate', ()=>{
+    if(location.hash === '#build-report'){ openBuild(); } else { closeBuild(); }
+  });
+})();
+</script><script>
+(function(){
+  var modal = document.getElementById('modalSchedule');
+  var cancel = document.getElementById('scheduleCancel');
+  if(cancel && modal){
+    cancel.addEventListener('click', function(e){
+      e.preventDefault();
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden','true');
+    });
+  }
+})();</script></body>
 </html>
