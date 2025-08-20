@@ -1984,13 +1984,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(!textarea) return;
     if(!textarea.value || !textarea.value.trim()){
       textarea.value = `-- Example query
-SELECT e.t4,
-       COALESCE(e.preferred_name, e.first_name) AS first_name,
-       e.last_name, e.status, e.start_date
-FROM core_lite.employees e
-WHERE e.status = 'A'
-ORDER BY e.start_date DESC
-LIMIT 250;`;
+SELECT ;`;
     }
     let cm = CodeMirror.fromTextArea(textarea, {
       mode: "text/x-sql",
